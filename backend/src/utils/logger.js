@@ -1,5 +1,7 @@
 // Use a simple console logger for packaged builds to avoid pkg/pino issues
 // pkg has trouble bundling pino's native dependencies
+// Import pino - esbuild marks as external, becomes require() after bundling
+// We copy node_modules/pino to temp directory so pkg can resolve require('pino')
 import pino from "pino";
 import pretty from "pino-pretty";
 
@@ -94,7 +96,10 @@ if (isPkg) {
   };
 } else {
   // Use pino for development
+  // pino is imported at top level - esbuild marks as external, becomes require() after bundling
+  // We copy node_modules/pino to temp directory so pkg can resolve require('pino')
   try {
+    
     const isProd = process.env.NODE_ENV === "production";
     const level = process.env.LOG_LEVEL || "info";
 

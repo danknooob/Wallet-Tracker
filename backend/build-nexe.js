@@ -66,7 +66,41 @@ try {
     // Copy ONLY the bundled file
     copyFileSync(resolve(__dirname, 'dist', 'app.js'), resolve(tempDir, 'app.js'));
     
-    // Create minimal package.json with pkg configuration for pino
+    // Copy pino and its dependencies to temp directory so pkg can find them
+    const nodeModulesSrc = resolve(__dirname, 'node_modules');
+    const nodeModulesDest = resolve(tempDir, 'node_modules');
+    mkdirSync(nodeModulesDest, { recursive: true });
+    
+    const pinoDeps = ['pino', 'pino-pretty', 'thread-stream', 'real-require', 'pino-std-serializers', 'fast-safe-stringify', 'sonic-boom', 'flatstr'];
+    
+    const copyDir = (src, dest) => {
+      mkdirSync(dest, { recursive: true });
+      const entries = require('fs').readdirSync(src, { withFileTypes: true });
+      for (const entry of entries) {
+        const srcPath = resolve(src, entry.name);
+        const destPath = resolve(dest, entry.name);
+        if (entry.isDirectory()) {
+          copyDir(srcPath, destPath);
+        } else {
+          copyFileSync(srcPath, destPath);
+        }
+      }
+    };
+    
+    for (const dep of pinoDeps) {
+      const srcPath = resolve(nodeModulesSrc, dep);
+      const destPath = resolve(nodeModulesDest, dep);
+      if (existsSync(srcPath)) {
+        if (require('fs').statSync(srcPath).isDirectory()) {
+          copyDir(srcPath, destPath);
+        } else {
+          copyFileSync(srcPath, destPath);
+        }
+        logger.info(`Copied ${dep} to temp directory`);
+      }
+    }
+    
+    // Create minimal package.json with pkg configuration
     const pkgJson = {
       name: 'wallet-backend',
       version: '1.0.0',
@@ -74,12 +108,6 @@ try {
       bin: 'app.js',
       pkg: {
         scripts: ['app.js'],
-        assets: [
-          'node_modules/pino/**/*',
-          'node_modules/pino-pretty/**/*',
-          'node_modules/thread-stream/**/*',
-          'node_modules/real-require/**/*'
-        ],
         targets: [config.pkgTarget]
       }
     };
