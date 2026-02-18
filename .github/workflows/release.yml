@@ -93,27 +93,29 @@ jobs:
         run: npm ci
 
       - name: Create .env file if missing
+        shell: pwsh
         run: |
-          if [ ! -f backend/.env ]; then
-            echo "Creating default .env file"
-            cat > backend/.env << EOF
+          if (-not (Test-Path "backend/.env")) {
+            Write-Host "Creating default .env file"
+            @"
           PORT=55001
           NODE_ENV=production
           ETH_RPC_URL=https://eth.llamarpc.com
           CODEX_RPC_URL=https://node-mainnet.codexnetwork.org
-          EOF
-          fi
+          "@ | Out-File -FilePath "backend/.env" -Encoding utf8
+          }
 
       - name: Build Tauri app for Windows
         working-directory: ./frontend
         run: npm run tauri:build
 
       - name: Copy .env to release directory
+        shell: pwsh
         run: |
-          if [ -f backend/.env ]; then
-            cp backend/.env frontend/src-tauri/target/release/.env
-            echo "Copied .env to release directory"
-          fi
+          if (Test-Path "backend/.env") {
+            Copy-Item "backend/.env" -Destination "frontend/src-tauri/target/release/.env" -Force
+            Write-Host "Copied .env to release directory"
+          }
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
