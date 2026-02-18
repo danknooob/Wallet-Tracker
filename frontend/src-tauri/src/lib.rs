@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::time::Duration;
 use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
+use std::net::TcpStream;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -9,6 +11,25 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let port = 55001u16;
+            
+            // Helper function to check if backend is listening on the port
+            let check_backend_health = |port: u16| -> bool {
+                for attempt in 1..=10 {
+                    match TcpStream::connect(format!("127.0.0.1:{}", port)) {
+                        Ok(_) => {
+                            eprintln!("✅ Backend is listening on port {} (attempt {})", port, attempt);
+                            return true;
+                        }
+                        Err(_) => {
+                            if attempt < 10 {
+                                std::thread::sleep(Duration::from_millis(500));
+                            }
+                        }
+                    }
+                }
+                eprintln!("❌ Backend is not listening on port {} after 10 attempts", port);
+                false
+            };
 
             // Helper function to spawn backend process
             let spawn_backend = |backend_path: &PathBuf, working_dir: &std::path::Path| -> bool {
@@ -93,16 +114,65 @@ pub fn run() {
                 }
             };
 
+            // Helper to load .env file and return env vars
+            let load_env_vars = || -> std::collections::HashMap<String, String> {
+                let mut env_vars = std::collections::HashMap::new();
+                env_vars.insert("PORT".to_string(), port.to_string());
+                
+                // Try to find .env file in multiple locations
+                let env_paths = vec![
+                    std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join(".env"))),
+                    app.path().resource_dir().ok().map(|d| d.join(".env")),
+                    app.path().app_data_dir().ok().map(|d| d.join(".env")),
+                ];
+                
+                for env_path_opt in env_paths {
+                    if let Some(env_path) = env_path_opt {
+                        if let Ok(content) = std::fs::read_to_string(&env_path) {
+                            eprintln!("Loading .env from: {:?}", env_path);
+                            for line in content.lines() {
+                                let line = line.trim();
+                                if line.is_empty() || line.starts_with('#') {
+                                    continue;
+                                }
+                                if let Some((key, value)) = line.split_once('=') {
+                                    env_vars.insert(key.trim().to_string(), value.trim().to_string());
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+                
+                env_vars
+            };
+            
             // 1) Try official sidecar (name: wallet-backend-<target-triple>.exe)
             if let Ok(cmd) = app.shell().sidecar("wallet-backend") {
-                match cmd.env("PORT", port.to_string()).spawn() {
+                let env_vars = load_env_vars();
+                let mut sidecar_cmd = cmd;
+                
+                // Set all environment variables from .env
+                for (key, value) in &env_vars {
+                    sidecar_cmd = sidecar_cmd.env(key, value);
+                }
+                
+                match sidecar_cmd.spawn() {
                     Ok((_rx, child)) => {
-                        std::thread::sleep(std::time::Duration::from_millis(1000));
-                        // Check if process is still running by trying to get its status
-                        // If it's still running, we can't get the status immediately
-                        eprintln!("Backend started via sidecar");
+                        eprintln!("Backend sidecar spawned, waiting for health check...");
                         let _ = child;
-                        return Ok(());
+                        
+                        // Wait a bit for backend to start
+                        std::thread::sleep(Duration::from_millis(2000));
+                        
+                        // Verify backend is actually listening
+                        if check_backend_health(port) {
+                            eprintln!("✅ Backend started successfully via sidecar");
+                            return Ok(());
+                        } else {
+                            eprintln!("⚠️ Backend sidecar spawned but not responding on port {}", port);
+                            // Continue to fallback methods
+                        }
                     }
                     Err(e) => {
                         eprintln!("Failed to spawn sidecar backend: {}", e);
@@ -121,8 +191,13 @@ pub fn run() {
                 if backend_path.is_file() {
                     eprintln!("Attempting to start backend from resource dir: {:?}", backend_path);
                     if spawn_backend(&backend_path, &resource_dir) {
-                        eprintln!("Backend started from resource directory");
-                        return Ok(());
+                        std::thread::sleep(Duration::from_millis(2000));
+                        if check_backend_health(port) {
+                            eprintln!("✅ Backend started from resource directory");
+                            return Ok(());
+                        } else {
+                            eprintln!("⚠️ Backend process started but not responding");
+                        }
                     }
                 } else {
                     eprintln!("Backend not found in resource dir: {:?}", backend_path);
@@ -141,8 +216,13 @@ pub fn run() {
                         eprintln!("Attempting to start backend from exe directory: {:?}", alt_path);
                         let parent_buf = parent.to_path_buf();
                         if spawn_backend(&alt_path, &parent_buf) {
-                            eprintln!("Backend started from exe directory");
-                            return Ok(());
+                            std::thread::sleep(Duration::from_millis(2000));
+                            if check_backend_health(port) {
+                                eprintln!("✅ Backend started from exe directory");
+                                return Ok(());
+                            } else {
+                                eprintln!("⚠️ Backend process started but not responding");
+                            }
                         }
                     } else {
                         eprintln!("Backend not found in exe directory: {:?}", alt_path);
@@ -150,7 +230,8 @@ pub fn run() {
                 }
             }
 
-            eprintln!("Warning: Could not start backend automatically. The app may not function correctly.");
+            eprintln!("❌ Warning: Could not start backend automatically. Check backend.log for details.");
+            eprintln!("The app may not function correctly. Backend should be listening on port {}", port);
             Ok(())
         })
         .run(tauri::generate_context!())

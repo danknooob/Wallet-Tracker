@@ -24,7 +24,10 @@
     ]
   },
   "bundle": {
-    "icon": ["icons/icon.ico"],
+    "icon": [
+      "icons/icon.ico",
+      "icons/icon.icns"
+    ],
     "category": "Finance",
     "shortDescription": "Derive multi-chain wallet addresses from mnemonic or xpub",
     "longDescription": "Wallet Tracker derives addresses for ETH, BTC, LTC, BCH, and SOL from a mnemonic or extended public key, with optional ETH balance enrichment.",
