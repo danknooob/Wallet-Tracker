@@ -1,7 +1,7 @@
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { mkdirSync, copyFileSync, rmSync, writeFileSync, readFileSync, existsSync } from 'fs';
+import { mkdirSync, copyFileSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { tmpdir } from 'os';
 import pino from 'pino';
 import pretty from 'pino-pretty';
@@ -42,11 +42,13 @@ if (!config) {
 
 logger.info(`Packaging with pkg for ${config.pkgTarget}...`);
 
+// Declare these outside try block so they're accessible in catch
+const packageJsonPath = resolve(__dirname, 'package.json');
+let originalPackageJson = null;
+let packageJsonModified = false;
+
 try {
   // Temporarily remove "main": "server.js" from backend/package.json so pkg doesn't include it
-  const packageJsonPath = resolve(__dirname, 'package.json');
-  let originalPackageJson = null;
-  let packageJsonModified = false;
   
   if (existsSync(packageJsonPath)) {
     originalPackageJson = readFileSync(packageJsonPath, 'utf-8');
@@ -75,7 +77,7 @@ try {
     
     const copyDir = (src, dest) => {
       mkdirSync(dest, { recursive: true });
-      const entries = require('fs').readdirSync(src, { withFileTypes: true });
+      const entries = readdirSync(src, { withFileTypes: true });
       for (const entry of entries) {
         const srcPath = resolve(src, entry.name);
         const destPath = resolve(dest, entry.name);
@@ -91,7 +93,7 @@ try {
       const srcPath = resolve(nodeModulesSrc, dep);
       const destPath = resolve(nodeModulesDest, dep);
       if (existsSync(srcPath)) {
-        if (require('fs').statSync(srcPath).isDirectory()) {
+        if (statSync(srcPath).isDirectory()) {
           copyDir(srcPath, destPath);
         } else {
           copyFileSync(srcPath, destPath);
@@ -133,7 +135,8 @@ try {
     }
   }
 } catch (error) {
-  logger.error('❌ pkg failed:', error.message);
+  logger.error({ error: error.message, stack: error.stack }, '❌ pkg failed');
+  console.error('Full error:', error);
   // Restore package.json on error too
   if (packageJsonModified && originalPackageJson) {
     writeFileSync(packageJsonPath, originalPackageJson);

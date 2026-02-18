@@ -19,13 +19,9 @@ export class BchWalletStrategy extends IWalletStrategy {
    * Normalise access to the `payments` namespace so we can always call `p2pkh`.
    */
   static getPayments() {
-    // CommonJS: require("bitcoinjs-lib") -> { payments, ... }
+    // bitcoinjs-lib exports payments directly (works for both CJS and ESM)
     if (bitcoin && bitcoin.payments) {
       return bitcoin.payments;
-    }
-    // ESM default: require("bitcoinjs-lib") -> { default: { payments, ... } }
-    if (bitcoin && bitcoin.default && bitcoin.default.payments) {
-      return bitcoin.default.payments;
     }
     throw new Error("bitcoinjs-lib payments API is not available");
   }

@@ -19,19 +19,15 @@ export class SolWalletStrategy extends IWalletStrategy {
    * Normalise that here so the rest of the code can just call `encodeBase58`.
    */
   static encodeBase58(bytes) {
-    // 1) CommonJS style: module itself is a function -> bs58(buffer)
+    // bs58 can be either a function or an object with .encode method
+    // Check function first (CommonJS style)
     if (typeof bs58 === "function") {
       return bs58(bytes);
     }
 
-    // 2) Object with .encode: bs58.encode(buffer)
+    // Check for .encode method (ESM style)
     if (bs58 && typeof bs58.encode === "function") {
       return bs58.encode(bytes);
-    }
-
-    // 3) ESM-default interop: { default: fn } or { default: { encode: fn } }
-    if (bs58 && typeof bs58.default === "function") {
-      return bs58.default(bytes);
     }
     if (bs58 && bs58.default && typeof bs58.default.encode === "function") {
       return bs58.default.encode(bytes);

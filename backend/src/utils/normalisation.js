@@ -3,22 +3,19 @@ import { Buffer } from "buffer";
 
 /**
  * bs58check can be exported in different ways depending on CJS/ESM interop.
- * Normalise access so we always have { encode, decode } available.
+ * - CJS: module has encode/decode on the exports object
+ * - ESM: package uses "export default", so we get { default: { encode, decode } }
  */
 function getBs58check() {
-  // 1) CommonJS style: module itself has encode/decode
+  // Direct encode/decode (CJS or some bundlers)
   if (bs58check && typeof bs58check.decode === "function" && typeof bs58check.encode === "function") {
     return bs58check;
   }
 
-  // 2) ESM default: { default: { encode, decode } }
-  if (
-    bs58check &&
-    bs58check.default &&
-    typeof bs58check.default.decode === "function" &&
-    typeof bs58check.default.encode === "function"
-  ) {
-    return bs58check.default;
+  // ESM default export (Node ESM: import * gives { default: { encode, decode } })
+  const def = bs58check?.default;
+  if (def && typeof def.decode === "function" && typeof def.encode === "function") {
+    return def;
   }
 
   throw new Error("bs58check encode/decode API is not available – unsupported version/interop");
