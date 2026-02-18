@@ -119,30 +119,81 @@ pub fn run() {
                 let mut env_vars = std::collections::HashMap::new();
                 env_vars.insert("PORT".to_string(), port.to_string());
                 
-                // Try to find .env file in multiple locations
-                let env_paths = vec![
-                    std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join(".env"))),
-                    app.path().resource_dir().ok().map(|d| d.join(".env")),
-                    app.path().app_data_dir().ok().map(|d| d.join(".env")),
-                ];
+                // Try to find .env file in multiple locations (in priority order)
+                let mut env_paths = Vec::new();
                 
-                for env_path_opt in env_paths {
-                    if let Some(env_path) = env_path_opt {
-                        if let Ok(content) = std::fs::read_to_string(&env_path) {
-                            eprintln!("Loading .env from: {:?}", env_path);
-                            for line in content.lines() {
-                                let line = line.trim();
-                                if line.is_empty() || line.starts_with('#') {
-                                    continue;
-                                }
-                                if let Some((key, value)) = line.split_once('=') {
-                                    env_vars.insert(key.trim().to_string(), value.trim().to_string());
-                                }
-                            }
-                            break;
+                // 1. Executable's directory (most reliable for packaged apps)
+                if let Ok(exe_path) = std::env::current_exe() {
+                    if let Some(exe_dir) = exe_path.parent() {
+                        env_paths.push(exe_dir.join(".env"));
+                        // Also check parent directory (in case exe is in a subdirectory)
+                        if let Some(parent) = exe_dir.parent() {
+                            env_paths.push(parent.join(".env"));
                         }
                     }
                 }
+                
+                // 2. Resource directory (where Tauri bundles resources)
+                if let Ok(resource_dir) = app.path().resource_dir() {
+                    env_paths.push(resource_dir.join(".env"));
+                }
+                
+                // 3. App data directory
+                if let Ok(app_data_dir) = app.path().app_data_dir() {
+                    env_paths.push(app_data_dir.join(".env"));
+                }
+                
+                // 4. Current working directory
+                if let Ok(cwd) = std::env::current_dir() {
+                    env_paths.push(cwd.join(".env"));
+                }
+                
+                eprintln!("🔍 Checking for .env file in {} locations...", env_paths.len());
+                
+                let mut loaded_from: Option<PathBuf> = None;
+                for env_path in &env_paths {
+                    if let Ok(content) = std::fs::read_to_string(env_path) {
+                        eprintln!("✅ Found .env file at: {:?}", env_path);
+                        loaded_from = Some(env_path.clone());
+                        
+                        let mut loaded_count = 0;
+                        for line in content.lines() {
+                            let line = line.trim();
+                            if line.is_empty() || line.starts_with('#') {
+                                continue;
+                            }
+                            if let Some((key, value)) = line.split_once('=') {
+                                let key = key.trim().to_string();
+                                let value = value.trim().to_string();
+                                env_vars.insert(key.clone(), value.clone());
+                                loaded_count += 1;
+                                // Log important vars (masked)
+                                if key == "ETH_RPC_URL" || key == "CODEX_RPC_URL" {
+                                    eprintln!("  📝 Loaded {} = {}***", key, &value[..value.len().min(20)]);
+                                }
+                            }
+                        }
+                        eprintln!("  ✅ Loaded {} environment variables from .env", loaded_count);
+                        break;
+                    }
+                }
+                
+                if loaded_from.is_none() {
+                    eprintln!("⚠️  No .env file found in any checked location:");
+                    for path in &env_paths {
+                        eprintln!("    - {:?}", path);
+                    }
+                    eprintln!("  Backend will use default values or environment variables already set.");
+                }
+                
+                // Log summary of what we're passing to backend
+                eprintln!("📋 Environment variables to pass to backend:");
+                eprintln!("  PORT = {}", env_vars.get("PORT").unwrap_or(&"not set".to_string()));
+                eprintln!("  ETH_RPC_URL = {}", 
+                    if env_vars.contains_key("ETH_RPC_URL") { "***set***" } else { "NOT SET" });
+                eprintln!("  CODEX_RPC_URL = {}", 
+                    if env_vars.contains_key("CODEX_RPC_URL") { "***set***" } else { "NOT SET" });
+                eprintln!("  NODE_ENV = {}", env_vars.get("NODE_ENV").unwrap_or(&"not set".to_string()));
                 
                 env_vars
             };

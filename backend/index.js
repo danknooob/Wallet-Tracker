@@ -7,28 +7,70 @@ import fs from "fs";
 import logger from "./src/utils/logger.js";
 import dotenv from "dotenv";
 
-// For packaged executables (pkg), look for .env in the executable's directory
-// For development, use the current working directory
-let envPath = path.join(process.cwd(), ".env");
+// Load .env from multiple possible locations
+// Priority: env vars already set (from Tauri) > .env file in various locations
+// dotenv.config() doesn't override existing env vars by default, so Tauri-set vars take precedence
 
-// If running as a packaged executable, try the executable's directory
+const envPaths = [];
+
+// 1. Current working directory (most common for development)
+envPaths.push(path.join(process.cwd(), ".env"));
+
+// 2. Executable's directory (for packaged executables)
 if (process.pkg) {
   const exeDir = path.dirname(process.execPath);
-  const exeEnvPath = path.join(exeDir, ".env");
-  if (fs.existsSync(exeEnvPath)) {
-    envPath = exeEnvPath;
+  envPaths.push(path.join(exeDir, ".env"));
+  // Also check parent directory (in case exe is in a subdirectory)
+  const parentDir = path.dirname(exeDir);
+  envPaths.push(path.join(parentDir, ".env"));
+}
+
+// 3. Check if env vars are already set (from Tauri sidecar)
+const hasEthRpc = !!process.env.ETH_RPC_URL;
+const hasCodexRpc = !!process.env.CODEX_RPC_URL;
+const hasPort = !!process.env.PORT;
+
+if (hasEthRpc || hasCodexRpc || hasPort) {
+  logger.info({
+    hasEthRpc,
+    hasCodexRpc,
+    hasPort,
+    ethRpcUrl: process.env.ETH_RPC_URL ? "***set***" : "not set",
+    codexRpcUrl: process.env.CODEX_RPC_URL ? "***set***" : "not set",
+    port: process.env.PORT || "not set"
+  }, "Environment variables already set (likely from Tauri sidecar)");
+}
+
+// Try to load .env from the first location that exists
+let loadedFrom = null;
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    // dotenv.config() won't override existing env vars, so Tauri-set vars are preserved
+    dotenv.config({ path: envPath, override: false });
+    loadedFrom = envPath;
+    logger.info({ path: envPath }, "Loaded .env file");
+    break;
   }
 }
 
-// Try to load .env from the determined path
-if (fs.existsSync(envPath)) {
-  dotenv.config({ path: envPath });
-  logger.info(`Loaded .env from: ${envPath}`);
-} else {
-  // Fallback to default dotenv behavior (current directory)
-  dotenv.config();
-  logger.info("No .env file found, using default dotenv behavior");
+if (!loadedFrom) {
+  // Fallback: try default dotenv behavior (current directory)
+  dotenv.config({ override: false });
+  logger.warn({
+    checkedPaths: envPaths,
+    cwd: process.cwd(),
+    execPath: process.pkg ? process.execPath : "N/A (not pkg)",
+  }, "No .env file found in checked paths, using default dotenv behavior");
 }
+
+// Log final env var status for debugging
+logger.info({
+  ETH_RPC_URL: process.env.ETH_RPC_URL ? "***set***" : "NOT SET",
+  CODEX_RPC_URL: process.env.CODEX_RPC_URL ? "***set***" : "NOT SET",
+  PORT: process.env.PORT || "using default (55001)",
+  NODE_ENV: process.env.NODE_ENV || "not set",
+  loadedFrom: loadedFrom || "none (using defaults or existing env vars)",
+}, "Environment variables status after loading");
 
 import app from "./src/app.js";
 
