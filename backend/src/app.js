@@ -37,23 +37,20 @@ app.use((req, res, next) => {
   next();
 });
 // ---------- Composition root (DI): wire ETH strategy with balance enricher and RPC providers ----------
-const ethRpcUrl = process.env.ETH_RPC_URL;
-const codexRpcUrl = process.env.CODEX_RPC_URL;
-logger.info({ ethRpcUrl }, "On the appjs file the ethRpcUrl is");
-logger.info({ codexRpcUrl }, "On the appjs file the codexRpcUrl is");
-if (ethRpcUrl) {
-  const ethProvider = new EthRpcProvider(ethRpcUrl);
-  const codexProvider = codexRpcUrl
-    ? new CodexRpcProvider(codexRpcUrl)
-    : new ZeroBalanceProvider();
-  if (!codexRpcUrl) {
-    logger.warn("CODEX_RPC_URL not set: codexBalance will show 0.0. Set it in .env for real Codex balances.");
-  }
-  const ethBalanceEnricher = new EthBalanceEnricher(ethProvider, codexProvider);
-  WalletStrategyRegistry.register("ETH", () => new EthWalletStrategy(ethBalanceEnricher));
-} else {
-  logger.warn("ETH_RPC_URL not set in .env: ETH/Codex balance columns will be empty. Add ETH_RPC_URL (and optionally CODEX_RPC_URL) to enable balances.");
-}
+// Hard-code RPC URLs so balances work in packaged builds without relying on environment variables.
+const ETH_RPC_URL = "https://eth.llamarpc.com";
+const CODEX_RPC_URL = "https://node-mainnet.codexnetwork.org";
+
+logger.info(
+  { ETH_RPC_URL: "***hardcoded***", CODEX_RPC_URL: "***hardcoded***" },
+  "Using hard-coded RPC URLs for ETH and Codex"
+);
+
+const ethProvider = new EthRpcProvider(ETH_RPC_URL);
+// Always provide a Codex provider; if the URL is unreachable, balances will gracefully fail.
+const codexProvider = new CodexRpcProvider(CODEX_RPC_URL);
+const ethBalanceEnricher = new EthBalanceEnricher(ethProvider, codexProvider);
+WalletStrategyRegistry.register("ETH", () => new EthWalletStrategy(ethBalanceEnricher));
 
 app.use(cors());
 app.use(express.json());

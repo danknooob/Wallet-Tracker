@@ -25,18 +25,12 @@ if (process.pkg) {
   envPaths.push(path.join(parentDir, ".env"));
 }
 
-// 3. Check if env vars are already set (from Tauri sidecar)
-const hasEthRpc = !!process.env.ETH_RPC_URL;
-const hasCodexRpc = !!process.env.CODEX_RPC_URL;
+// 3. Check if env vars are already set (from Tauri sidecar) for non-RPC settings like PORT
 const hasPort = !!process.env.PORT;
 
-if (hasEthRpc || hasCodexRpc || hasPort) {
+if (hasPort) {
   logger.info({
-    hasEthRpc,
-    hasCodexRpc,
     hasPort,
-    ethRpcUrl: process.env.ETH_RPC_URL ? "***set***" : "not set",
-    codexRpcUrl: process.env.CODEX_RPC_URL ? "***set***" : "not set",
     port: process.env.PORT || "not set"
   }, "Environment variables already set (likely from Tauri sidecar)");
 }
@@ -63,10 +57,8 @@ if (!loadedFrom) {
   }, "No .env file found in checked paths, using default dotenv behavior");
 }
 
-// Log final env var status for debugging
+// Log final env var status for debugging (only non-RPC vars; RPC URLs are hard-coded)
 logger.info({
-  ETH_RPC_URL: process.env.ETH_RPC_URL ? "***set***" : "NOT SET",
-  CODEX_RPC_URL: process.env.CODEX_RPC_URL ? "***set***" : "NOT SET",
   PORT: process.env.PORT || "using default (55001)",
   NODE_ENV: process.env.NODE_ENV || "not set",
   loadedFrom: loadedFrom || "none (using defaults or existing env vars)",
