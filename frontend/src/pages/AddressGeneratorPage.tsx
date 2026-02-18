@@ -9,6 +9,81 @@ const totalItemsToDisplay = 100;
 const noBalanceCurrencyDisplay = ["BTC", "LTC", "BCH", "SOL"];
 const totalPages = Math.ceil(totalItemsToDisplay / itemsPerPage);
 
+type AddressResult = {
+  srNo: number;
+  address: string;
+  path: string;
+  ethBalance?: string;
+  codexBalance?: string;
+};
+
+type WalletFetchResponse = {
+  data?: AddressResult[];
+  error?: string;
+};
+
+/** Backend API base URL (same port the desktop app's backend uses). */
+const API_BASE = "http://127.0.0.1:55001";
+const REQUEST_TIMEOUT_MS = 30000;
+
+/**
+ * Turn fetch/network errors into user-friendly, descriptive messages.
+ */
+function getDescriptiveErrorMessage(e: unknown, context?: { status?: number; statusText?: string; bodyError?: string }): string {
+  if (e instanceof TypeError) {
+    const msg = (e as Error).message?.toLowerCase() ?? "";
+    if (msg.includes("failed to fetch") || msg.includes("network") || msg.includes("load")) {
+      return "Backend is not running or not reachable. The app may still be starting—wait a few seconds and try again. If it keeps failing, close the app completely and reopen it, or check if another program is using port 55001.";
+    }
+    if (msg.includes("aborted")) {
+      return "Request was cancelled or timed out. The backend may be slow or not responding. Try again in a moment.";
+    }
+  }
+
+  if (e instanceof Error) {
+    const msg = e.message.toLowerCase();
+    if (msg.includes("connection refused") || msg.includes("econnrefused")) {
+      return "Connection refused: the backend is not running. Restart the app and wait a few seconds before clicking Show Addresses. If the problem continues, port 55001 may be in use by another application.";
+    }
+    if (msg.includes("timeout") || msg.includes("timed out") || msg.includes("etimedout")) {
+      return "Request timed out. The backend did not respond in time—it may be busy, stuck, or not running. Try again or restart the app.";
+    }
+    if (msg.includes("address already in use") || msg.includes("eaddrinuse")) {
+      return "Port 55001 is already in use by another application. Close the other app or restart your computer, then open Wallet Tracker again.";
+    }
+    if (msg.includes("invalid json") || msg.includes("unexpected token")) {
+      return "Backend returned invalid data; it may have crashed or restarted. Try again or restart the app.";
+    }
+    // Server returned an error message we threw ourselves
+    if (e.message && e.message.length < 200 && !e.message.includes("failed to fetch")) {
+      return e.message;
+    }
+  }
+
+  if (context?.status !== undefined) {
+    if (context.status === 0) {
+      return "No response from backend (connection failed or blocked). Ensure the app’s backend is running and nothing is blocking port 55001.";
+    }
+    if (context.status === 503) {
+      return "Backend is temporarily unavailable (service overloaded or starting). Wait a moment and try again.";
+    }
+    if (context.status >= 500) {
+      return `Backend error (${context.status}). The server encountered an internal error. Try again or restart the app.`;
+    }
+    if (context.bodyError) {
+      return context.bodyError;
+    }
+    if (context.status === 400 || context.status === 422) {
+      return context.bodyError || `Request was rejected by the backend (${context.status}). Check your input (mnemonic or xpub) and try again.`;
+    }
+    if (context.status >= 400) {
+      return context.bodyError || `Request failed (${context.status} ${context.statusText || "error"}).`;
+    }
+  }
+
+  return "Something went wrong. If the problem continues, try restarting the app or checking if port 55001 is free.";
+}
+
 /**
  * Address generator UI: mnemonic or xpub + currency, then fetches derived addresses from the API
  * and displays them in a table with pagination.
@@ -17,7 +92,7 @@ export default function AddressGenerator() {
   const [selectedType, setSelectedType] = useState<"mnemonic" | "xpub">("mnemonic");
   const [currencyType, setCurrencyType] = useState<"ETH" | "BTC" | "LTC" | "BCH" | "SOL">("ETH");
   const [inputValue, setInputValue] = useState("");
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<AddressResult[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,10 +103,13 @@ export default function AddressGenerator() {
     setError(null);
     setCurrentPage(pageNumber);
 
+    const startIdx = (pageNumber - 1) * itemsPerPage;
+    const cleanedValue = inputValue.trim();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
     try {
-      const startIdx = (pageNumber - 1) * itemsPerPage;
-      const cleanedValue = inputValue.trim();
-      const res = await fetch("http://localhost:5001/api/wallet/fetch", {
+      const res = await fetch(`${API_BASE}/api/wallet/fetch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -41,13 +119,45 @@ export default function AddressGenerator() {
           count: itemsPerPage,
           startIdx,
         }),
+        signal: controller.signal,
       });
 
-      if (!res.ok) throw new Error("Failed to fetch data");
-      const json = await res.json();
+      clearTimeout(timeoutId);
+
+      let json: WalletFetchResponse;
+      try {
+        json = await res.json();
+      } catch (parseErr) {
+        setError(
+          getDescriptiveErrorMessage(parseErr, {
+            status: res.status,
+            statusText: res.statusText,
+            bodyError: "Backend returned invalid JSON; it may have crashed. Try again or restart the app.",
+          })
+        );
+        return;
+      }
+
+      if (!res.ok) {
+        setError(
+          getDescriptiveErrorMessage(new Error(json.error || res.statusText), {
+            status: res.status,
+            statusText: res.statusText,
+            bodyError: json.error,
+          })
+        );
+        return;
+      }
+
       setResults(json.data || []);
-    } catch (e: any) {
-      setError(e.message || "Something went wrong");
+    } catch (e: unknown) {
+      clearTimeout(timeoutId);
+      const isAbort = e instanceof Error && e.name === "AbortError";
+      setError(
+        getDescriptiveErrorMessage(isAbort ? new Error("Request timed out") : e, {
+          status: isAbort ? undefined : (e as { status?: number }).status,
+        })
+      );
     } finally {
       setLoading(false);
     }

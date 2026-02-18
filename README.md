@@ -20,6 +20,7 @@ Derive **multi-chain wallet addresses** from a mnemonic or extended public key (
 - [API overview](#api-overview)
 - [Project structure](#project-structure)
 - [Desktop app (Tauri)](#desktop-app-tauri)
+- [Automated Releases (GitHub Actions)](#automated-releases-github-actions)
 - [Security](#security)
 - [Limitations](#limitations)
 
@@ -63,21 +64,22 @@ rustc --version
 
 ## Downloads
 
-Download the pre-built release for your platform. **No installation or configuration required** - just extract and run!
-
-- **Windows (x64)**: [Download](<ADD_WINDOWS_INSTALLER_URL_HERE>)
+Download the pre-built release for your platform from [GitHub Releases](https://github.com/danknooob/Wallet-Tracker/releases). **No installation or configuration required** - just download and run!
 
 ### Quick Start (End Users)
 
-1. Download the zip file for your platform
-2. Extract all files to a folder
-3. Run `wallet-tracker.exe` (Windows)
+1. Go to the [Releases page](https://github.com/danknooob/Wallet-Tracker/releases)
+2. Download the installer for your platform:
+   - **Windows**: `.msi` installer or `.exe` standalone
+   - **macOS**: `.dmg` installer or `.app` bundle
+3. Run the installer or executable
 
 **That's it!** The app includes everything needed:
 - ✅ Pre-configured backend with RPC URLs
 - ✅ ETH and Codex balance support enabled
 - ✅ No Node.js or npm required
 - ✅ No configuration files to edit
+- ✅ Backend starts automatically
 
 The app will automatically start the backend and display wallet addresses with balances.
 
@@ -124,7 +126,7 @@ Create **`backend/.env`** with your config (see [Environment variables](#environ
 npm run dev
 ```
 
-API base: **http://localhost:5001** (or the `PORT` in `.env`).
+API base: **http://localhost:55001** (or the `PORT` in `.env`).
 
 ### 3. Frontend
 
@@ -154,7 +156,7 @@ Backend loads **`backend/.env`**. Never commit `.env` or put real URLs in the re
 
 | Variable        | Required | Description |
 |----------------|----------|-------------|
-| `PORT`         | No       | Server port (default: `5001`) |
+| `PORT`         | No       | Server port (default: `55001`) |
 | `NODE_ENV`     | No       | e.g. `development` or `production` |
 | `ETH_RPC_URL`  | For ETH balances | Ethereum JSON-RPC URL (Infura, Alchemy, etc.). If missing, ETH/Codex balance columns stay empty. |
 | `CODEX_RPC_URL`| No       | Codex chain RPC URL. If missing, `codexBalance` is returned as `0.0`. |
@@ -162,7 +164,7 @@ Backend loads **`backend/.env`**. Never commit `.env` or put real URLs in the re
 **Example (use your own values):**
 
 ```env
-PORT=5001
+PORT=55001
 NODE_ENV=development
 ETH_RPC_URL=https://your-eth-rpc.example.com
 CODEX_RPC_URL=https://your-codex-rpc.example.com
@@ -187,8 +189,8 @@ RPC options: Infura, Alchemy, QuickNode, or public endpoints for Ethereum; your 
 
 ## API overview
 
-- **Swagger UI**: **http://localhost:5001/api-docs**
-- **OpenAPI JSON**: **http://localhost:5001/api-docs.json**
+- **Swagger UI**: **http://localhost:55001/api-docs**
+- **OpenAPI JSON**: **http://localhost:55001/api-docs.json**
 
 ### POST `/api/wallet/fetch`
 
@@ -353,7 +355,7 @@ To ship a single desktop app that \"just works\" for end users (no Node, no manu
    - `wallet-backend-aarch64-apple-darwin`
    - `wallet-backend-x86_64-apple-darwin`
 
-2. **Tauri picks the right binary** at runtime using `externalBin` and starts it as a sidecar on port `5001`. The frontend then calls `http://127.0.0.1:5001` from inside the desktop app.
+2. **Tauri picks the right binary** at runtime using `externalBin` and starts it as a sidecar on port `55001`. The frontend then calls `http://127.0.0.1:55001` from inside the desktop app.
 
 ### Build installers
 
@@ -369,6 +371,143 @@ Outputs are in **`frontend/src-tauri/target/release/bundle/`**:
 | Windows | `.msi`, `.exe` (NSIS) |
 | macOS   | `.app`, `.dmg` |
 | Linux   | `.deb`, `.AppImage`, etc. |
+
+### Automated Releases (GitHub Actions)
+
+This project uses **GitHub Actions** to automatically build and release the Wallet Tracker app for Windows and macOS whenever you create a new GitHub Release.
+
+#### For Maintainers
+
+1. **Create a GitHub Release:**
+   - Go to your repository on GitHub
+   - Click "Releases" → "Create a new release"
+   - Choose a tag (e.g., `v1.0.1`) or create a new one
+   - Fill in release title and description
+   - Click "Publish release"
+
+2. **GitHub Actions Automatically:**
+   - Triggers the build workflow (`release.yml`)
+   - Spins up Windows and macOS runners
+   - Builds the backend executable for each platform
+   - Builds the Tauri desktop app for each platform
+   - Uploads all artifacts to the GitHub Release
+
+3. **Artifacts Available:**
+   - **Windows**: `.msi` installer and standalone `.exe`
+   - **macOS**: `.dmg` installer and `.app` bundle
+   - All files are automatically attached to the release
+
+#### For End Users
+
+1. **Download from Releases:**
+   - Go to: `https://github.com/danknooob/Wallet-Tracker/releases`
+   - Find the latest release
+   - Download the installer/executable for their platform:
+     - **Windows**: Download `.msi` (installer) or `.exe` (portable)
+     - **macOS**: Download `.dmg` (installer) or `.app` (bundle)
+
+2. **Install/Run:**
+   - **Windows `.msi`**: Double-click to install, then run from Start Menu
+   - **Windows `.exe`**: Double-click to run directly (portable)
+   - **macOS `.dmg`**: Open DMG, drag app to Applications, run from Applications
+   - **macOS `.app`**: Double-click to run (may need to allow in Security settings)
+
+3. **That's It!**
+   - No Node.js required
+   - No configuration needed
+   - Backend starts automatically
+   - Everything is included
+
+#### Workflow Details
+
+**What Gets Built:**
+
+**Windows Build:**
+- Backend executable: `wallet-backend-x86_64-pc-windows-msvc.exe`
+- Tauri app: `wallet-tracker.exe`
+- Installer: `.msi` (Windows Installer)
+- Standalone: `.exe` (NSIS installer)
+
+**macOS Build:**
+- Backend executables: ARM64 and Intel versions
+- Tauri app: `.app` bundle
+- Installer: `.dmg` disk image
+
+**Build Process:**
+
+1. **Backend Build:**
+   - Installs Node.js dependencies
+   - Bundles backend code with esbuild
+   - Packages with `pkg` into standalone executable
+   - Copies to `frontend/src-tauri/bin/`
+
+2. **Frontend Build:**
+   - Installs Node.js dependencies
+   - Builds React frontend with Vite
+   - Compiles Rust/Tauri app
+   - Creates installers/bundles
+
+3. **Release Upload:**
+   - Downloads artifacts from both platforms
+   - Uploads all files to GitHub Release
+   - Users can download directly
+
+#### Configuration
+
+**Required GitHub Secrets (Optional):**
+
+For **code signing** (recommended for production):
+
+- `TAURI_PRIVATE_KEY`: Your Tauri private key
+- `TAURI_KEY_PASSWORD`: Password for the key
+
+**Note:** The workflow works without these secrets, but builds will be unsigned.
+
+**Environment Variables:**
+
+The workflow automatically creates a `.env` file with default RPC URLs:
+- `ETH_RPC_URL=https://eth.llamarpc.com`
+- `CODEX_RPC_URL=https://node-mainnet.codexnetwork.org`
+
+To use different RPC URLs, add them to `backend/.env` before creating a release (but don't commit secrets!).
+
+#### Troubleshooting
+
+**Build Fails:**
+
+1. Check the Actions tab for error logs
+2. Common issues:
+   - Missing dependencies (check `package-lock.json` is committed)
+   - Rust compilation errors
+   - Backend build failures
+
+**Artifacts Not Uploaded:**
+
+- Ensure both Windows and macOS builds complete successfully
+- Check the "Upload to Release" job completed
+- Verify you created a Release (not just a tag)
+
+**Users Can't Download:**
+
+- Check the Release page shows the artifacts
+- Verify file sizes are reasonable (not 0 bytes)
+- Ensure GitHub Actions has permission to upload to releases
+
+**Manual Build (If Needed):**
+
+If you need to build locally instead of using GitHub Actions:
+
+```bash
+# Windows
+cd backend && npm run build:backend:win
+cd ../frontend && npm run tauri:build
+
+# macOS (ARM)
+cd backend && npm run build:backend:mac:arm
+cd ../frontend && npm run tauri:build
+```
+
+Built files will be in `frontend/src-tauri/target/release/` and `frontend/src-tauri/target/release/bundle/`.
 
 ---
 

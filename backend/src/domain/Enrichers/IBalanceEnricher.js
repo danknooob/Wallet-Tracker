@@ -3,7 +3,7 @@
  * Keeps wallet strategies independent of RPC/balance logic (DIP + SRP).
  * Strategies that need enrichment receive an enricher via constructor (DI).
  */
-class IBalanceEnricher {
+export class IBalanceEnricher {
   /**
    * Enrich a list of derived children (e.g. add balances).
    * @param {Array<{ address: string, [key: string]: any }>} children - Derived address entries
@@ -14,4 +14,4 @@ class IBalanceEnricher {
   }
 }
 
-module.exports = { IBalanceEnricher };
+

@@ -1,0 +1,229 @@
+name: Build Release
+
+on:
+  release:
+    types: [created]
+  # Also allow manual workflow dispatch for testing
+  workflow_dispatch:
+
+jobs:
+  check-branch:
+    name: Check Branch
+    runs-on: ubuntu-latest
+    outputs:
+      is-main: ${{ steps.check.outputs.is-main }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check if release is from main branch
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            # For releases, check the tag's commit is on main
+            TAG_NAME="${{ github.event.release.tag_name }}"
+            git fetch --tags
+            COMMIT_SHA=$(git rev-list -n 1 "$TAG_NAME" 2>/dev/null || echo "")
+            if [ -n "$COMMIT_SHA" ]; then
+              git fetch origin main
+              if git branch -r --contains "$COMMIT_SHA" | grep -q "origin/main"; then
+                echo "is-main=true" >> $GITHUB_OUTPUT
+                echo "✅ Release tag $TAG_NAME is on main branch"
+              else
+                echo "is-main=false" >> $GITHUB_OUTPUT
+                echo "⚠️ Release tag $TAG_NAME is NOT on main branch - skipping build"
+              fi
+            else
+              echo "is-main=false" >> $GITHUB_OUTPUT
+              echo "⚠️ Could not find commit for tag $TAG_NAME"
+            fi
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # For manual dispatch, check current branch
+            if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+              echo "is-main=true" >> $GITHUB_OUTPUT
+              echo "✅ Manual trigger from main branch"
+            else
+              echo "is-main=false" >> $GITHUB_OUTPUT
+              echo "⚠️ Manual trigger NOT from main branch - skipping build"
+            fi
+          else
+            echo "is-main=false" >> $GITHUB_OUTPUT
+          fi
+
+  build-windows:
+    needs: check-branch
+    if: needs.check-branch.outputs.is-main == 'true'
+    name: Build Windows
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install Rust dependencies
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Build backend for Windows
+        working-directory: ./backend
+        run: npm run build:backend:win
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Create .env file if missing
+        run: |
+          if [ ! -f backend/.env ]; then
+            echo "Creating default .env file"
+            cat > backend/.env << EOF
+          PORT=55001
+          NODE_ENV=production
+          ETH_RPC_URL=https://eth.llamarpc.com
+          CODEX_RPC_URL=https://node-mainnet.codexnetwork.org
+          EOF
+          fi
+
+      - name: Build Tauri app for Windows
+        working-directory: ./frontend
+        run: npm run tauri:build
+
+      - name: Copy .env to release directory
+        run: |
+          if [ -f backend/.env ]; then
+            cp backend/.env frontend/src-tauri/target/release/.env
+            echo "Copied .env to release directory"
+          fi
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: |
+            frontend/src-tauri/target/release/wallet-tracker.exe
+            frontend/src-tauri/target/release/bundle/**/*.msi
+            frontend/src-tauri/target/release/bundle/**/*.exe
+
+  build-macos:
+    name: Build macOS
+    needs: check-branch
+    if: needs.check-branch.outputs.is-main == 'true'
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install Rust dependencies
+        run: |
+          rustup target add aarch64-apple-darwin
+          rustup target add x86_64-apple-darwin
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Build backend for macOS (ARM)
+        working-directory: ./backend
+        run: npm run build:backend:mac:arm
+
+      - name: Build backend for macOS (Intel)
+        working-directory: ./backend
+        run: npm run build:backend:mac:intel
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Create .env file if missing
+        run: |
+          if [ ! -f backend/.env ]; then
+            echo "Creating default .env file"
+            cat > backend/.env << EOF
+          PORT=55001
+          NODE_ENV=production
+          ETH_RPC_URL=https://eth.llamarpc.com
+          CODEX_RPC_URL=https://node-mainnet.codexnetwork.org
+          EOF
+          fi
+
+      - name: Build Tauri app for macOS
+        working-directory: ./frontend
+        run: npm run tauri:build
+
+      - name: Copy .env to release directory
+        run: |
+          if [ -f backend/.env ]; then
+            cp backend/.env frontend/src-tauri/target/release/.env
+            echo "Copied .env to release directory"
+          fi
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: |
+            frontend/src-tauri/target/release/bundle/**/*.app
+            frontend/src-tauri/target/release/bundle/**/*.dmg
+
+  upload-release:
+    name: Upload to Release
+    needs: [check-branch, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'release' && 
+      needs.check-branch.outputs.is-main == 'true'
+    
+    steps:
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-artifacts
+          path: ./artifacts/windows
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-artifacts
+          path: ./artifacts/macos
+
+      - name: Upload all release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/windows/**/*
+            artifacts/macos/**/*

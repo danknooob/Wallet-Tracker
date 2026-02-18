@@ -1,5 +1,5 @@
-const bs58check = require("bs58check");
-const { Buffer } = require("buffer");
+import * as bs58check from "bs58check";
+import { Buffer } from "buffer";
 
 /**
  * bs58check can be exported in different ways depending on CJS/ESM interop.
@@ -32,7 +32,7 @@ const bs = getBs58check();
  * @param {string} extPub - Base58check-encoded extended public key
  * @returns {string} Normalized base58check extended public key (xpub or tpub for testnet)
  */
-function normalizeExtendedPubKey(extPub) {
+export function normalizeExtendedPubKey(extPub) {
   const data = bs.decode(extPub);
   const version = Buffer.from(data.slice(0, 4)).toString("hex");
 
@@ -53,4 +53,4 @@ function normalizeExtendedPubKey(extPub) {
   return bs.encode(Buffer.from(converted, "hex"));
 }
 
-module.exports = { normalizeExtendedPubKey };
+

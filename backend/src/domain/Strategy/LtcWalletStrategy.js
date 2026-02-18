@@ -1,10 +1,10 @@
-const bip39 = require("@scure/bip39");
-const { HDKey } = require("@scure/bip32");
-const bitcoin = require("bitcoinjs-lib");
-const { InputType } = require("../Types/InputType.js");
-const { WalletStrategyRegistry } = require("../Factory/WalletStrategyRegistry.js");
-const { IWalletStrategy } = require("./IWalletStrategy.js");
-const { normalizeExtendedPubKey } = require("../../utils/normalisation.js");
+import * as bip39 from "@scure/bip39";
+import { HDKey } from "@scure/bip32";
+import * as bitcoin from "bitcoinjs-lib";
+import { InputType } from "../Types/InputType.js";
+import { WalletStrategyRegistry } from "../Factory/WalletStrategyRegistry.js";
+import { IWalletStrategy } from "./IWalletStrategy.js";
+import { normalizeExtendedPubKey } from "../../utils/normalisation.js";
 
 const BASE_PATH_MNEMONIC = "m/84'/2'/0'/0";
 
@@ -21,7 +21,7 @@ const litecoinNetwork = {
  * Litecoin (SegWit) wallet derivation strategy.
  * Supports MNEMONIC and XPUB via input handlers (OCP). No balance enrichment.
  */
-class LtcWalletStrategy extends IWalletStrategy {
+export class LtcWalletStrategy extends IWalletStrategy {
   /**
    * bitcoinjs-lib can be loaded in different ways (CJS vs ESM, bundler interop).
    * Normalise access to the `payments` namespace so we can always call `p2wpkh`.
@@ -90,4 +90,4 @@ class LtcWalletStrategy extends IWalletStrategy {
 
 WalletStrategyRegistry.register("LTC", LtcWalletStrategy);
 
-module.exports = { LtcWalletStrategy };
+

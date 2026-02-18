@@ -3,6 +3,16 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { mkdirSync, copyFileSync, rmSync, writeFileSync, readFileSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
+import pino from 'pino';
+import pretty from 'pino-pretty';
+
+const stream = pretty({
+  colorize: true,
+  translateTime: 'SYS:standard',
+  ignore: 'pid,hostname',
+});
+const logger = pino(stream);
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -26,11 +36,11 @@ const targets = {
 
 const config = targets[target];
 if (!config) {
-  console.error('Invalid target. Use: win, mac-arm, or mac-intel');
+  logger.error('Invalid target. Use: win, mac-arm, or mac-intel');
   process.exit(1);
 }
 
-console.log(`Packaging with pkg for ${config.pkgTarget}...`);
+logger.info(`Packaging with pkg for ${config.pkgTarget}...`);
 
 try {
   // Temporarily remove "main": "server.js" from backend/package.json so pkg doesn't include it
@@ -45,7 +55,7 @@ try {
     delete pkg.main; // Remove main so pkg doesn't see server.js
     writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
     packageJsonModified = true;
-    console.log('📦 Temporarily removed "main" from package.json');
+    logger.info('📦 Temporarily removed "main" from package.json');
   }
   
   try {
@@ -56,7 +66,7 @@ try {
     // Copy ONLY the bundled file
     copyFileSync(resolve(__dirname, 'dist', 'app.js'), resolve(tempDir, 'app.js'));
     
-    // Create minimal package.json (NO "type": "module", NO "main": "server.js")
+    // Create minimal package.json with pkg configuration for pino
     const pkgJson = {
       name: 'wallet-backend',
       version: '1.0.0',
@@ -64,7 +74,13 @@ try {
       bin: 'app.js',
       pkg: {
         scripts: ['app.js'],
-        assets: []
+        assets: [
+          'node_modules/pino/**/*',
+          'node_modules/pino-pretty/**/*',
+          'node_modules/thread-stream/**/*',
+          'node_modules/real-require/**/*'
+        ],
+        targets: [config.pkgTarget]
       }
     };
     writeFileSync(resolve(tempDir, 'package.json'), JSON.stringify(pkgJson, null, 2));
@@ -76,7 +92,7 @@ try {
     try {
       const pkgCmd = `npx pkg app.js --targets ${config.pkgTarget} --output "${config.output}"`;
       execSync(pkgCmd, { stdio: 'inherit' });
-      console.log(`✅ Built: ${config.output}`);
+      logger.info(`✅ Built: ${config.output}`);
     } finally {
       process.chdir(originalCwd);
       rmSync(tempDir, { recursive: true, force: true });
@@ -85,11 +101,11 @@ try {
     // Restore original package.json
     if (packageJsonModified && originalPackageJson) {
       writeFileSync(packageJsonPath, originalPackageJson);
-      console.log('✅ Restored package.json');
+      logger.info('✅ Restored package.json');
     }
   }
 } catch (error) {
-  console.error('❌ pkg failed:', error.message);
+  logger.error('❌ pkg failed:', error.message);
   // Restore package.json on error too
   if (packageJsonModified && originalPackageJson) {
     writeFileSync(packageJsonPath, originalPackageJson);

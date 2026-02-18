@@ -1,16 +1,16 @@
-const bip39 = require("@scure/bip39");
-const { derivePath } = require("ed25519-hd-key");
-const nacl = require("tweetnacl");
-const bs58 = require("bs58");
-const { WalletStrategyRegistry } = require("../Factory/WalletStrategyRegistry.js");
-const { IWalletStrategy } = require("./IWalletStrategy.js");
-const { InputType } = require("../Types/InputType.js");
+import * as bip39 from "@scure/bip39";
+import { derivePath } from "ed25519-hd-key";
+import nacl from "tweetnacl";
+import * as bs58 from "bs58";
+import { WalletStrategyRegistry } from "../Factory/WalletStrategyRegistry.js";
+import { IWalletStrategy } from "./IWalletStrategy.js";
+import { InputType } from "../Types/InputType.js";
 
 /**
  * Solana wallet derivation strategy (BIP44 path m/44'/501'/i'/0').
  * Only MNEMONIC is supported; XPUB handler throws (Solana uses Ed25519, different from BIP32 xpub).
  */
-class SolWalletStrategy extends IWalletStrategy {
+export class SolWalletStrategy extends IWalletStrategy {
   /**
    * bs58 recently changed packaging; depending on how the bundler/Node loads it,
    * `require("bs58")` can be either:
@@ -74,4 +74,4 @@ class SolWalletStrategy extends IWalletStrategy {
 
 WalletStrategyRegistry.register("SOL", SolWalletStrategy);
 
-module.exports = { SolWalletStrategy };
+

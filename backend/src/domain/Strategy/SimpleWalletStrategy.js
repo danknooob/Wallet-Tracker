@@ -1,11 +1,11 @@
-const { IWalletStrategy } = require("./IWalletStrategy.js");
-const { InputType } = require("../Types/InputType.js");
+import { IWalletStrategy } from "./IWalletStrategy.js";
+import { InputType } from "../Types/InputType.js";
 
 /**
  * Minimal strategy for testing or demo: returns placeholder addresses.
  * Not registered in the registry; use only in tests or as a template.
  */
-class SimpleWalletStrategy extends IWalletStrategy {
+export class SimpleWalletStrategy extends IWalletStrategy {
   constructor(currency, basePath) {
     super();
     this.currency = currency;
@@ -43,4 +43,4 @@ class SimpleWalletStrategy extends IWalletStrategy {
   }
 }
 
-module.exports = { SimpleWalletStrategy };
+

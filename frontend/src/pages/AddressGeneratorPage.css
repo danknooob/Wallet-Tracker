@@ -205,9 +205,12 @@
 }
 
 .error-text {
-  margin: 0;
-  font-size: 0.8rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
   color: #f97373;
+  max-width: 100%;
+  word-wrap: break-word;
+  line-height: 1.4;
 }
 
 /* Table + pagination in same div as button; no gap, no scroll */

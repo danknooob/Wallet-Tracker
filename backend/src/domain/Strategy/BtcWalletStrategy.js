@@ -1,10 +1,10 @@
-const { HDKey } = require("@scure/bip32");
-const bitcoin = require("bitcoinjs-lib");
-const bip39 = require("@scure/bip39");
-const { normalizeExtendedPubKey } = require("../../utils/normalisation.js");
-const { WalletStrategyRegistry } = require("../Factory/WalletStrategyRegistry.js");
-const { IWalletStrategy } = require("./IWalletStrategy.js");
-const { InputType } = require("../Types/InputType.js");
+import { HDKey } from "@scure/bip32";
+import * as bitcoin from "bitcoinjs-lib";
+import * as bip39 from "@scure/bip39";
+import { normalizeExtendedPubKey } from "../../utils/normalisation.js";
+import { WalletStrategyRegistry } from "../Factory/WalletStrategyRegistry.js";
+import { IWalletStrategy } from "./IWalletStrategy.js";
+import { InputType } from "../Types/InputType.js";
 
 const BASE_PATH_MNEMONIC = "m/84'/0'/0'/0";
 
@@ -12,7 +12,7 @@ const BASE_PATH_MNEMONIC = "m/84'/0'/0'/0";
  * Bitcoin (SegWit, BIP84) wallet derivation strategy.
  * Supports MNEMONIC and XPUB via input handlers (OCP). No balance enrichment.
  */
-class BtcWalletStrategy extends IWalletStrategy {
+export class BtcWalletStrategy extends IWalletStrategy {
   /**
    * bitcoinjs-lib can be loaded in different ways (CJS vs ESM, bundler interop).
    * Normalise access to the `payments` namespace so we can always call `p2wpkh`.
@@ -81,4 +81,4 @@ class BtcWalletStrategy extends IWalletStrategy {
 
 WalletStrategyRegistry.register("BTC", BtcWalletStrategy);
 
-module.exports = { BtcWalletStrategy };
+

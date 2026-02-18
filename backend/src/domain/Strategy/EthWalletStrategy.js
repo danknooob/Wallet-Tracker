@@ -1,9 +1,9 @@
-const { ethers } = require("ethers");
-const bip39 = require("@scure/bip39");
-const { HDKey } = require("@scure/bip32");
-const { InputType } = require("../Types/InputType.js");
-const { WalletStrategyRegistry } = require("../Factory/WalletStrategyRegistry.js");
-const { IWalletStrategy } = require("./IWalletStrategy.js");
+import { ethers } from "ethers";
+import * as bip39 from "@scure/bip39";
+import { HDKey } from "@scure/bip32";
+import { InputType } from "../Types/InputType.js";
+import { WalletStrategyRegistry } from "../Factory/WalletStrategyRegistry.js";
+import { IWalletStrategy } from "./IWalletStrategy.js";
 
 const BASE_PATH = "m/44'/60'/0'/0";
 
@@ -12,7 +12,7 @@ const BASE_PATH = "m/44'/60'/0'/0";
  * Supports MNEMONIC and XPUB. Enrichment (ETH/Codex balances) is delegated to an optional
  * IBalanceEnricher injected via constructor (DI).
  */
-class EthWalletStrategy extends IWalletStrategy {
+export class EthWalletStrategy extends IWalletStrategy {
   /**
    * @param {import("../Enrichers/IBalanceEnricher.js").IBalanceEnricher} [balanceEnricher] - Optional. If provided, enrich() delegates here (DI).
    */
@@ -75,4 +75,4 @@ class EthWalletStrategy extends IWalletStrategy {
 // Self-register for backward compat; app.js may overwrite with a factory that injects enricher
 WalletStrategyRegistry.register("ETH", EthWalletStrategy);
 
-module.exports = { EthWalletStrategy };
+

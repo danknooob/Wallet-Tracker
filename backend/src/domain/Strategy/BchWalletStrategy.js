@@ -1,11 +1,11 @@
-const { HDKey } = require("@scure/bip32");
-const bitcoin = require("bitcoinjs-lib");
-const cashaddr = require("cashaddrjs");
-const bip39 = require("@scure/bip39");
-const { normalizeExtendedPubKey } = require("../../utils/normalisation.js");
-const { InputType } = require("../Types/InputType.js");
-const { WalletStrategyRegistry } = require("../Factory/WalletStrategyRegistry.js");
-const { IWalletStrategy } = require("./IWalletStrategy.js");
+import { HDKey } from "@scure/bip32";
+import * as bitcoin from "bitcoinjs-lib";
+import * as cashaddr from "cashaddrjs";
+import * as bip39 from "@scure/bip39";
+import { normalizeExtendedPubKey } from "../../utils/normalisation.js";
+import { InputType } from "../Types/InputType.js";
+import { WalletStrategyRegistry } from "../Factory/WalletStrategyRegistry.js";
+import { IWalletStrategy } from "./IWalletStrategy.js";
 
 const BASE_PATH_MNEMONIC = "m/44'/145'/0'/0";
 
@@ -13,7 +13,7 @@ const BASE_PATH_MNEMONIC = "m/44'/145'/0'/0";
  * Bitcoin Cash (P2PKH, CashAddr) wallet derivation strategy.
  * Supports MNEMONIC and XPUB via input handlers (OCP). No balance enrichment.
  */
-class BchWalletStrategy extends IWalletStrategy {
+export class BchWalletStrategy extends IWalletStrategy {
   /**
    * bitcoinjs-lib can be loaded in different ways (CJS vs ESM, bundler interop).
    * Normalise access to the `payments` namespace so we can always call `p2pkh`.
@@ -80,4 +80,4 @@ class BchWalletStrategy extends IWalletStrategy {
 
 WalletStrategyRegistry.register("BCH", BchWalletStrategy);
 
-module.exports = { BchWalletStrategy };
+

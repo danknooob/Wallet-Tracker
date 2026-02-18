@@ -1,11 +1,13 @@
-const { fetchWalletData } = require("../services/walletService.js");
-const { InputType } = require("../domain/Types/InputType.js");
+import { fetchWalletData } from "../services/walletService.js";
+import { InputType } from "../domain/Types/InputType.js";
+import logger from "../utils/logger.js";
 
 /**
  * POST /api/wallet/fetch handler. Validates body, normalizes inputType, and returns derived addresses (and balances for ETH).
  */
-const fetchData = async (req, res) => {
+export const fetchData = async (req, res) => {
   try {
+    logger.info({ body: req.body }, "Request body:");
     const { inputType, currency, value, count, startIdx } = req.body;
 
     if (!inputType || !currency || !value) {
@@ -32,11 +34,10 @@ const fetchData = async (req, res) => {
     res.json(result);
   } catch (err) {
     // Log full error server-side for easier debugging while returning a clean message to clients.
-    // This is safe for production as it only logs to backend console.
-    // eslint-disable-next-line no-console
-    console.error("Error in /api/wallet/fetch:", err);
+    // This is safe for production as it only logs to backend logger.
+    logger.error(err, "Error in /api/wallet/fetch:");
     res.status(400).json({ error: err.message });
   }
 };
 
-module.exports = { fetchData };
+

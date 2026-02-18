@@ -1,10 +1,10 @@
-const { ethers } = require("ethers");
+import { ethers } from "ethers";
 
 /**
  * Ethereum RPC provider used to fetch balances.
  * Accepts rpcUrl in constructor for DI and testability; falls back to ETH_RPC_URL if not provided.
  */
-class EthRpcProvider {
+export class EthRpcProvider {
   /**
    * @param {string} [rpcUrl] - Optional. Uses process.env.ETH_RPC_URL if omitted.
    */
@@ -24,4 +24,4 @@ class EthRpcProvider {
   }
 }
 
-module.exports = { EthRpcProvider };
+
