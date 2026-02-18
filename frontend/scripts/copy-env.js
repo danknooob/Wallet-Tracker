@@ -12,22 +12,33 @@ const __dirname = dirname(__filename);
 const repoRoot = join(__dirname, '../..');
 const backendEnv = join(repoRoot, 'backend', '.env');
 const binDir = join(repoRoot, 'frontend', 'src-tauri', 'bin');
+const tauriDir = join(repoRoot, 'frontend', 'src-tauri');
 const releaseDir = join(repoRoot, 'frontend', 'src-tauri', 'target', 'release');
 const destEnv = join(releaseDir, '.env');
+const tauriEnv = join(tauriDir, '.env'); // For bundling as resource
 
-// Copy .env file
+// Copy .env file to Tauri directory (for bundling as resource)
+if (existsSync(backendEnv)) {
+  try {
+    copyFileSync(backendEnv, tauriEnv);
+    console.log('✅ Copied .env file to Tauri directory (for resource bundling)');
+  } catch (error) {
+    console.error('❌ Failed to copy .env file to Tauri directory:', error.message);
+    process.exit(1);
+  }
+} else {
+  console.warn('⚠️  backend/.env not found - backend will use defaults');
+}
+
+// Copy .env file to release directory (for runtime)
 if (existsSync(backendEnv) && existsSync(releaseDir)) {
   try {
     copyFileSync(backendEnv, destEnv);
     console.log('✅ Copied .env file to release directory');
   } catch (error) {
-    console.error('❌ Failed to copy .env file:', error.message);
-    process.exit(1);
+    console.warn('⚠️  Failed to copy .env file to release directory:', error.message);
   }
 } else {
-  if (!existsSync(backendEnv)) {
-    console.warn('⚠️  backend/.env not found - backend will use defaults');
-  }
   if (!existsSync(releaseDir)) {
     console.warn('⚠️  Release directory not found - run tauri:build first');
   }

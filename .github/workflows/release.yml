@@ -123,6 +123,10 @@ jobs:
           "@ | Out-File -FilePath "backend/.env" -Encoding utf8
           }
 
+      - name: Copy .env file for resource bundling
+        working-directory: ./frontend
+        run: node scripts/copy-env.js
+
       - name: Build Tauri app for Windows
         working-directory: ./frontend
         run: npm run tauri:build
@@ -239,11 +243,13 @@ jobs:
           EOF
           fi
 
+      - name: Copy .env file for resource bundling
+        working-directory: ./frontend
+        run: node scripts/copy-env.js
+
       - name: Build Tauri app for macOS
         working-directory: ./frontend
-        run: |
-          npm run tauri build -- --bundles app,dmg
-          node scripts/copy-env.js
+        run: npm run tauri build -- --bundles app,dmg
 
       - name: Copy .env to release directory
         run: |

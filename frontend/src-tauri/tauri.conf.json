@@ -32,7 +32,7 @@
     "shortDescription": "Derive multi-chain wallet addresses from mnemonic or xpub",
     "longDescription": "Wallet Tracker derives addresses for ETH, BTC, LTC, BCH, and SOL from a mnemonic or extended public key, with optional ETH balance enrichment.",
     "externalBin": ["bin/wallet-backend"],
-    "resources": []
+    "resources": [".env"]
   },
   "plugins": {}
 }
