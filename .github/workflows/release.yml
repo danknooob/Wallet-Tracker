@@ -5,6 +5,10 @@ on:
     types: [created]
   # Also allow manual workflow dispatch for testing
   workflow_dispatch:
+  # Trigger on push to main (for testing builds)
+  push:
+    branches:
+      - main
 
 jobs:
   check-branch:
@@ -39,6 +43,15 @@ jobs:
               echo "is-main=false" >> $GITHUB_OUTPUT
               echo "⚠️ Could not find commit for tag $TAG_NAME"
             fi
+          elif [ "${{ github.event_name }}" == "push" ]; then
+            # For push events, check if it's main branch
+            if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+              echo "is-main=true" >> $GITHUB_OUTPUT
+              echo "✅ Push to main branch - building artifacts"
+            else
+              echo "is-main=false" >> $GITHUB_OUTPUT
+              echo "⚠️ Push NOT to main branch - skipping build"
+            fi
           elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             # For manual dispatch, check current branch
             if [ "${{ github.ref }}" == "refs/heads/main" ]; then
@@ -50,6 +63,7 @@ jobs:
             fi
           else
             echo "is-main=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Unknown event type: ${{ github.event_name }}"
           fi
 
   build-windows:
