@@ -199,13 +199,28 @@ jobs:
 
       - name: Build Tauri app for macOS
         working-directory: ./frontend
-        run: npm run tauri:build
+        run: |
+          npm run tauri build -- --bundles app,dmg
+          node scripts/copy-env.js
 
       - name: Copy .env to release directory
         run: |
           if [ -f backend/.env ]; then
             cp backend/.env frontend/src-tauri/target/release/.env
             echo "Copied .env to release directory"
+          fi
+
+      - name: List build output directory
+        run: |
+          echo "Checking build output directory structure..."
+          if [ -d "frontend/src-tauri/target/release/bundle" ]; then
+            find frontend/src-tauri/target/release/bundle -type f -name "*.app" -o -name "*.dmg" | head -20
+            echo "---"
+            ls -laR frontend/src-tauri/target/release/bundle/ || true
+          else
+            echo "Bundle directory does not exist!"
+            echo "Checking release directory..."
+            ls -la frontend/src-tauri/target/release/ || true
           fi
 
       - name: Upload macOS artifacts
@@ -215,6 +230,7 @@ jobs:
           path: |
             frontend/src-tauri/target/release/bundle/**/*.app
             frontend/src-tauri/target/release/bundle/**/*.dmg
+          if-no-files-found: warn
 
   upload-release:
     name: Upload to Release
