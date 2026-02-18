@@ -42,8 +42,28 @@ if (existsSync(binDir) && existsSync(releaseDir)) {
     try {
       copyFileSync(backendExe, destBackendExe);
       console.log('✅ Copied backend executable to release directory');
+      
+      // Also copy to bundle directories if they exist
+      const bundleDirs = [
+        join(releaseDir, 'bundle', 'msi', 'Wallet Tracker_1.0.1_x64_en-US'),
+        join(releaseDir, 'bundle', 'nsis'),
+      ];
+      
+      for (const bundleDir of bundleDirs) {
+        if (existsSync(bundleDir)) {
+          try {
+            copyFileSync(backendExe, join(bundleDir, 'wallet-backend.exe'));
+            copyFileSync(destEnv, join(bundleDir, '.env'));
+            console.log(`✅ Copied backend and .env to ${bundleDir}`);
+          } catch (err) {
+            // Ignore errors for bundle directories that don't exist
+          }
+        }
+      }
     } catch (error) {
       console.warn('⚠️  Failed to copy backend executable:', error.message);
     }
+  } else {
+    console.warn('⚠️  Backend executable not found:', backendExe);
   }
 }

@@ -127,12 +127,44 @@ jobs:
         working-directory: ./frontend
         run: npm run tauri:build
 
-      - name: Copy .env to release directory
+      - name: Copy backend executable and .env to bundle directory
         shell: pwsh
         run: |
+          $bundleDir = "frontend/src-tauri/target/release/bundle/msi/Wallet Tracker_1.0.1_x64_en-US"
+          if (-not (Test-Path $bundleDir)) {
+            # Try NSIS installer directory
+            $bundleDir = "frontend/src-tauri/target/release/bundle/nsis"
+            if (-not (Test-Path $bundleDir)) {
+              Write-Host "Bundle directory not found, trying release directory"
+              $bundleDir = "frontend/src-tauri/target/release"
+            }
+          }
+          
+          # Copy backend executable
+          $backendExe = "frontend/src-tauri/bin/wallet-backend-x86_64-pc-windows-msvc.exe"
+          if (Test-Path $backendExe) {
+            Copy-Item $backendExe -Destination "$bundleDir/wallet-backend.exe" -Force
+            Write-Host "✅ Copied backend executable to bundle directory"
+          } else {
+            Write-Host "⚠️  Backend executable not found at $backendExe"
+          }
+          
+          # Copy .env file
           if (Test-Path "backend/.env") {
-            Copy-Item "backend/.env" -Destination "frontend/src-tauri/target/release/.env" -Force
-            Write-Host "Copied .env to release directory"
+            Copy-Item "backend/.env" -Destination "$bundleDir/.env" -Force
+            Write-Host "✅ Copied .env to bundle directory"
+          } else {
+            Write-Host "⚠️  .env file not found"
+          }
+          
+          # Also copy to release directory for standalone exe
+          if (Test-Path "frontend/src-tauri/target/release") {
+            if (Test-Path $backendExe) {
+              Copy-Item $backendExe -Destination "frontend/src-tauri/target/release/wallet-backend.exe" -Force
+            }
+            if (Test-Path "backend/.env") {
+              Copy-Item "backend/.env" -Destination "frontend/src-tauri/target/release/.env" -Force
+            }
           }
 
       - name: Upload Windows artifacts
@@ -141,6 +173,8 @@ jobs:
           name: windows-artifacts
           path: |
             frontend/src-tauri/target/release/wallet-tracker.exe
+            frontend/src-tauri/target/release/wallet-backend.exe
+            frontend/src-tauri/target/release/.env
             frontend/src-tauri/target/release/bundle/**/*.msi
             frontend/src-tauri/target/release/bundle/**/*.exe
 
